@@ -330,6 +330,7 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 	set_power_suspend_state_panel_hook(POWER_SUSPEND_ACTIVE);
 #endif
 
+
 	pr_info("%s:\n", __func__);
 	return 0;
 }

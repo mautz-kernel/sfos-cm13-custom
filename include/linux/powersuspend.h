@@ -14,6 +14,8 @@
  *
  *  v1.4 - add a hybrid-kernel mode, accepting both kernel hooks (first wins)
  *
+ *  v1.5 - fix hybrid-kernel mode cannot be set through sysfs
+ *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
@@ -22,9 +24,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
-
 #ifndef _LINUX_POWERSUSPEND_H
 #define _LINUX_POWERSUSPEND_H
 
@@ -37,6 +37,8 @@
 #define POWER_SUSPEND_USERSPACE	1	// Use fauxclock as trigger
 #define POWER_SUSPEND_PANEL	2	// Use display panel state as hook
 #define POWER_SUSPEND_HYBRID	3	// Use display panel state and autosleep as hook
+
+#define DEFAULT_POWER_MODE	POWER_SUSPEND_HYBRID
 
 struct power_suspend {
 	struct list_head link;
