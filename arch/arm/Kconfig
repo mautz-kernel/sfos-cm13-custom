@@ -1492,6 +1492,8 @@ endmenu
 source "arch/arm/common/Kconfig"
 source "arch/arm/hotplug/Kconfig"
 
+source "arch/arm/hotplug/Kconfig"
+
 menu "Bus support"
 
 config ARM_AMBA
