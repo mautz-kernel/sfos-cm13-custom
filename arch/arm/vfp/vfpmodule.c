@@ -23,6 +23,7 @@
 #include <linux/proc_fs.h>
 #include <linux/export.h>
 #include <linux/seq_file.h>
+#include <linux/export.h>
 
 #include <asm/cp15.h>
 #include <asm/cputype.h>
@@ -86,6 +87,7 @@ static void vfp_force_reload(unsigned int cpu, struct thread_info *thread)
 	}
 #ifdef CONFIG_SMP
 	thread->vfpstate.hard.cpu = NR_CPUS;
+	vfp_current_hw_state[cpu] = NULL;
 #endif
 }
 
@@ -689,6 +691,15 @@ static int vfp_bounce_open(struct inode *inode, struct file *file)
 	return single_open(file, vfp_bounce_show, NULL);
 }
 
+static const struct file_operations vfp_bounce_fops = {
+	.open		= vfp_bounce_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+#endif
+
+
 #ifdef CONFIG_KERNEL_MODE_NEON
 
 /*
@@ -735,14 +746,6 @@ EXPORT_SYMBOL(kernel_neon_end);
 
 #endif /* CONFIG_KERNEL_MODE_NEON */
 
-static const struct file_operations vfp_bounce_fops = {
-	.open		= vfp_bounce_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release,
-};
-#endif
-
 /*
  * VFP support code initialisation.
  */
@@ -750,9 +753,7 @@ static int __init vfp_init(void)
 {
 	unsigned int vfpsid;
 	unsigned int cpu_arch = cpu_architecture();
-#ifdef CONFIG_PROC_FS
-	static struct proc_dir_entry *procfs_entry;
-#endif
+
 	if (cpu_arch >= CPU_ARCH_ARMv6)
 		on_each_cpu(vfp_enable, NULL, 1);
 
@@ -822,14 +823,21 @@ static int __init vfp_init(void)
 		}
 	}
 
+	return 0;
+}
+
+static int __init vfp_rootfs_init(void)
+{
 #ifdef CONFIG_PROC_FS
+	static struct proc_dir_entry *procfs_entry;
+
 	procfs_entry = proc_create("cpu/vfp_bounce", S_IRUGO, NULL,
 			&vfp_bounce_fops);
 	if (!procfs_entry)
 		pr_err("Failed to create procfs node for VFP bounce reporting\n");
 #endif
-
 	return 0;
 }
 
-rootfs_initcall(vfp_init);
+core_initcall(vfp_init);
+rootfs_initcall(vfp_rootfs_init);
