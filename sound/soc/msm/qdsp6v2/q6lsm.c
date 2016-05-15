@@ -775,7 +775,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, uint32_t len)
 	mutex_lock(&client->cmd_lock);
 	if (!client->sound_model.data) {
 		client->sound_model.client =
-		    msm_ion_client_create(UINT_MAX, "lsm_client");
+		    msm_ion_client_create("lsm_client");
 		if (IS_ERR_OR_NULL(client->sound_model.client)) {
 			pr_err("%s: ION create client for AUDIO failed\n",
 			       __func__);

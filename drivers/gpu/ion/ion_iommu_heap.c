@@ -61,6 +61,7 @@ static unsigned int high_gfp_flags = (__GFP_HIGHMEM | __GFP_NORETRY
 
 struct page_info {
 	struct page *page;
+	bool from_pool;
 	unsigned int order;
 	struct list_head list;
 };
@@ -83,7 +84,8 @@ static unsigned int order_to_size(int order)
 static struct page_info *alloc_largest_available(struct ion_iommu_heap *heap,
 						unsigned long size,
 						unsigned int max_order,
-						unsigned long flags)
+						unsigned long flags,
+						bool *from_pool)
 {
 	struct page *page;
 	struct page_info *info;
@@ -119,7 +121,7 @@ static struct page_info *alloc_largest_available(struct ion_iommu_heap *heap,
 		if (flags & ION_FLAG_POOL_FORCE_ALLOC)
 			page = alloc_pages(gfp, orders[i]);
 		else
-			page = ion_page_pool_alloc(pool);
+			page = ion_page_pool_alloc(pool, from_pool);
 		trace_alloc_pages_iommu_end(gfp, orders[i]);
 		if (!page) {
 			trace_alloc_pages_iommu_fail(gfp, orders[i]);
@@ -130,6 +132,7 @@ static struct page_info *alloc_largest_available(struct ion_iommu_heap *heap,
 		if (info) {
 			info->page = page;
 			info->order = orders[i];
+			info->from_pool = from_pool;
 		}
 		return info;
 	}
@@ -202,6 +205,7 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 				      unsigned long size, unsigned long align,
 				      unsigned long flags)
 {
+	bool from_pool;
 	int ret, i;
 	struct list_head pages_list;
 	struct page_info *info, *tmp_info;
@@ -227,7 +231,8 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 			info = alloc_largest_available(iommu_heap,
 						size_remaining,
 						max_order,
-						flags);
+						flags,
+						&from_pool);
 			if (!info) {
 				ret = -ENOMEM;
 				goto err_free_data;
