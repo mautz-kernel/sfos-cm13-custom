@@ -1,8 +1,9 @@
 /*
  * governor.h - internal header for devfreq governors.
  *
- * Copyright (C) 2011 Samsung Electronics
+ * Copyright (C) 2011, Samsung Electronics
  *	MyungJoo Ham <myungjoo.ham@samsung.com>
+ * Copyright (C) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -38,4 +39,9 @@ extern void devfreq_interval_update(struct devfreq *devfreq,
 extern int devfreq_add_governor(struct devfreq_governor *governor);
 extern int devfreq_remove_governor(struct devfreq_governor *governor);
 
+extern int devfreq_get_freq_level(struct devfreq *devfreq, unsigned long freq);
+extern int devfreq_policy_add_files(struct devfreq *devfreq,
+				    struct attribute_group attr_group);
+extern void devfreq_policy_remove_files(struct devfreq *devfreq,
+					struct attribute_group attr_group);
 #endif /* _GOVERNOR_H */

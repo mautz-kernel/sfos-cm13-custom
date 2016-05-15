@@ -1,8 +1,9 @@
 /*
- *  linux/drivers/devfreq/governor_powersave.c
+ * linux/drivers/devfreq/governor_powersave.c
  *
- *  Copyright (C) 2011 Samsung Electronics
- *	MyungJoo Ham <myungjoo.ham@samsung.com>
+ * Copyright (C) 2011, Samsung Electronics
+ *		      MyungJoo Ham <myungjoo.ham@samsung.com>
+ * Copyright (C) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,7 +15,8 @@
 #include "governor.h"
 
 static int devfreq_powersave_func(struct devfreq *df,
-				  unsigned long *freq)
+				  unsigned long *freq,
+				  u32 *flag)
 {
 	/*
 	 * target callback should be able to get ceiling value as
@@ -38,7 +40,8 @@ static int devfreq_powersave_handler(struct devfreq *devfreq,
 	return ret;
 }
 
-static struct devfreq_governor devfreq_powersave = {
+static struct devfreq_governor devfreq_powersave =
+{
 	.name = "powersave",
 	.get_target_freq = devfreq_powersave_func,
 	.event_handler = devfreq_powersave_handler,
