@@ -1,8 +1,9 @@
 /*
- *  linux/drivers/devfreq/governor_simpleondemand.c
+ * linux/drivers/devfreq/governor_simpleondemand.c
  *
- *  Copyright (C) 2011 Samsung Electronics
- *	MyungJoo Ham <myungjoo.ham@samsung.com>
+ * Copyright (C) 2011, Samsung Electronics
+ *		       MyungJoo Ham <myungjoo.ham@samsung.com>
+ * Copyright (C) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,7 +23,8 @@ struct userspace_data {
 	bool valid;
 };
 
-static int devfreq_userspace_func(struct devfreq *df, unsigned long *freq)
+static int devfreq_userspace_func(struct devfreq *df, unsigned long *freq,
+					u32 *flag)
 {
 	struct userspace_data *data = df->data;
 
@@ -36,9 +38,9 @@ static int devfreq_userspace_func(struct devfreq *df, unsigned long *freq)
 			adjusted_freq = df->min_freq;
 
 		*freq = adjusted_freq;
-	} else {
+	} else
 		*freq = df->previous_freq; /* No user freq specified yet */
-	}
+
 	return 0;
 }
 
@@ -50,7 +52,6 @@ static ssize_t store_freq(struct device *dev, struct device_attribute *attr,
 	unsigned long wanted;
 	int err = 0;
 
-
 	mutex_lock(&devfreq->lock);
 	data = devfreq->data;
 
@@ -61,6 +62,7 @@ static ssize_t store_freq(struct device *dev, struct device_attribute *attr,
 	if (err == 0)
 		err = count;
 	mutex_unlock(&devfreq->lock);
+
 	return err;
 }
 
@@ -79,15 +81,18 @@ static ssize_t show_freq(struct device *dev, struct device_attribute *attr,
 	else
 		err = sprintf(buf, "undefined\n");
 	mutex_unlock(&devfreq->lock);
+
 	return err;
 }
 
 static DEVICE_ATTR(set_freq, 0644, show_freq, store_freq);
-static struct attribute *dev_entries[] = {
+static struct attribute *dev_entries[] =
+{
 	&dev_attr_set_freq.attr,
 	NULL,
 };
-static struct attribute_group dev_attr_group = {
+static struct attribute_group dev_attr_group =
+{
 	.name	= "userspace",
 	.attrs	= dev_entries,
 };
@@ -106,6 +111,7 @@ static int userspace_init(struct devfreq *devfreq)
 	devfreq->data = data;
 
 	err = sysfs_create_group(&devfreq->dev.kobj, &dev_attr_group);
+
 out:
 	return err;
 }
@@ -123,20 +129,21 @@ static int devfreq_userspace_handler(struct devfreq *devfreq,
 	int ret = 0;
 
 	switch (event) {
-	case DEVFREQ_GOV_START:
-		ret = userspace_init(devfreq);
-		break;
-	case DEVFREQ_GOV_STOP:
-		userspace_exit(devfreq);
-		break;
-	default:
-		break;
+		case DEVFREQ_GOV_START:
+			ret = userspace_init(devfreq);
+			break;
+		case DEVFREQ_GOV_STOP:
+			userspace_exit(devfreq);
+			break;
+		default:
+			break;
 	}
 
 	return ret;
 }
 
-static struct devfreq_governor devfreq_userspace = {
+static struct devfreq_governor devfreq_userspace =
+{
 	.name = "userspace",
 	.get_target_freq = devfreq_userspace_func,
 	.event_handler = devfreq_userspace_handler,

@@ -1,3 +1,5 @@
+comment "DEVFREQ Drivers"
+
 menuconfig PM_DEVFREQ
 	bool "Generic Dynamic Voltage and Frequency Scaling (DVFS) support"
 	help
@@ -27,7 +29,7 @@ menuconfig PM_DEVFREQ
 
 if PM_DEVFREQ
 
-comment "DEVFREQ Governors"
+comment "DEVFREQ FRAMEWORK"
 
 config DEVFREQ_GOV_SIMPLE_ONDEMAND
 	tristate "Simple Ondemand"
@@ -63,19 +65,35 @@ config DEVFREQ_GOV_USERSPACE
 	  Otherwise, the governor does not change the frequnecy
 	  given at the initialization.
 
-comment "DEVFREQ Drivers"
-
-config ARM_EXYNOS4_BUS_DEVFREQ
-	bool "ARM Exynos4210/4212/4412 Memory Bus DEVFREQ Driver"
-	depends on CPU_EXYNOS4210 || CPU_EXYNOS4212 || CPU_EXYNOS4412
-	select ARCH_HAS_OPP
-	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+config DEVFREQ_GOV_MSM_ADRENO_TZ
+	tristate "MSM Adreno Trustzone"
+	depends on MSM_KGSL && MSM_SCM
 	help
-	  This adds the DEVFREQ driver for Exynos4210 memory bus (vdd_int)
-	  and Exynos4212/4412 memory interface and bus (vdd_mif + vdd_int).
-	  It reads PPMU counters of memory controllers and adjusts
-	  the operating frequencies and voltages with OPP support.
-	  To operate with optimal voltages, ASV support is required
-	  (CONFIG_EXYNOS_ASV).
+	  Trustzone based governor for the Adreno GPU.
+	  Sets the frequency using a "on-demand" algorithm.
+	  This governor is unlikely to be useful for other devices.
+
+config DEVFREQ_GOV_CONSERVATIVE
+	tristate "Conservative"
+	depends on MSM_KGSL
+	help
+	  Chooses frequency based on the recent load on the device. Works
+	  similar as conservative governor of cpufreq does and implements
+	  the useful optimizations from Adreno TZ.
+
+config DEVFREQ_SIMPLE_GPU_ALGORITHM
+	bool "Simple GPU algorithm"
+	depends on DEVFREQ_GOV_MSM_ADRENO_TZ
+	help
+	  Simple user configurable GPU controlling algorithm.
+
+config DEVFREQ_ADRENO_IDLER
+	tristate "MSM Adreno idler"
+	depends on DEVFREQ_GOV_MSM_ADRENO_TZ
+	help
+	  Uses a different calculation method on top of Adreno TZ
+	  just for calculating frequency for idle to reduce the
+	  wasted power coming from stock Adreno TZ while
+	  maintaining high-performance.
 
 endif # PM_DEVFREQ

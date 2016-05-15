@@ -2,8 +2,9 @@
  * devfreq: Generic Dynamic Voltage and Frequency Scaling (DVFS) Framework
  *	    for Non-CPU Devices.
  *
- * Copyright (C) 2011 Samsung Electronics
+ * Copyright (C) 2011, Samsung Electronics
  *	MyungJoo Ham <myungjoo.ham@samsung.com>
+ * Copyright (C) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -28,6 +29,7 @@
 #include "governor.h"
 
 static struct class *devfreq_class;
+static struct kobject *gpufreq_kobj;
 
 /*
  * devfreq core provides delayed work based load monitoring helper
@@ -96,16 +98,21 @@ static void devfreq_set_freq_limits(struct devfreq *devfreq)
  * @devfreq:	the devfreq instance
  * @freq:	the target frequency
  */
-static int devfreq_get_freq_level(struct devfreq *devfreq, unsigned long freq)
+int devfreq_get_freq_level(struct devfreq *devfreq, unsigned long freq)
 {
 	int lev;
+	unsigned int *freq_table = devfreq->profile->freq_table;
+
+	if (devfreq->state == KGSL_STATE_SLUMBER)
+		return sizeof(freq_table);
 
 	for (lev = 0; lev < devfreq->profile->max_state; lev++)
-		if (freq == devfreq->profile->freq_table[lev])
+		if (freq == freq_table[lev])
 			return lev;
 
 	return -EINVAL;
 }
+EXPORT_SYMBOL(devfreq_get_freq_level);
 
 /**
  * devfreq_update_status() - Update statistics of devfreq behavior
@@ -114,26 +121,39 @@ static int devfreq_get_freq_level(struct devfreq *devfreq, unsigned long freq)
  */
 static int devfreq_update_status(struct devfreq *devfreq, unsigned long freq)
 {
-	int lev, prev_lev;
+	int lev, prev_lev, ret = 0;
 	unsigned long cur_time;
 
-	lev = devfreq_get_freq_level(devfreq, freq);
-	if (lev < 0)
-		return lev;
-
 	cur_time = jiffies;
-	devfreq->time_in_state[lev] +=
+	if (devfreq->state == KGSL_STATE_SLUMBER) {
+		devfreq->last_stat_updated = cur_time;
+		return 0;
+	}
+
+	prev_lev = devfreq_get_freq_level(devfreq, devfreq->previous_freq);
+	if (prev_lev < 0) {
+		ret = prev_lev;
+		goto out;
+	}
+
+	devfreq->time_in_state[prev_lev] +=
 			 cur_time - devfreq->last_stat_updated;
-	if (freq != devfreq->previous_freq) {
-		prev_lev = devfreq_get_freq_level(devfreq,
-						devfreq->previous_freq);
+
+	lev = devfreq_get_freq_level(devfreq, freq);
+	if (lev < 0) {
+		ret = lev;
+		goto out;
+	}
+
+	if (lev != prev_lev) {
 		devfreq->trans_table[(prev_lev *
 				devfreq->profile->max_state) + lev]++;
 		devfreq->total_trans++;
 	}
-	devfreq->last_stat_updated = cur_time;
 
-	return 0;
+out:
+	devfreq->last_stat_updated = cur_time;
+	return ret;
 }
 
 /**
@@ -186,7 +206,7 @@ int update_devfreq(struct devfreq *devfreq)
 		return -EINVAL;
 
 	/* Reevaluate the proper frequency */
-	err = devfreq->governor->get_target_freq(devfreq, &freq);
+	err = devfreq->governor->get_target_freq(devfreq, &freq, &flags);
 	if (err)
 		return err;
 
@@ -339,7 +359,6 @@ void devfreq_interval_update(struct devfreq *devfreq, unsigned int *delay)
 	unsigned int new_delay = *delay;
 
 	mutex_lock(&devfreq->lock);
-	devfreq->profile->polling_ms = new_delay;
 
 	if (devfreq->stop_polling)
 		goto out;
@@ -399,7 +418,7 @@ static int devfreq_notifier_call(struct notifier_block *nb, unsigned long type,
  * @devfreq:	the devfreq struct
  * @skip:	skip calling device_unregister().
  */
-static void _remove_devfreq(struct devfreq *devfreq, bool skip)
+static void _remove_devfreq(struct devfreq *devfreq)
 {
 	mutex_lock(&devfreq_list_lock);
 	if (IS_ERR(find_device_devfreq(devfreq->dev.parent))) {
@@ -417,11 +436,6 @@ static void _remove_devfreq(struct devfreq *devfreq, bool skip)
 	if (devfreq->profile->exit)
 		devfreq->profile->exit(devfreq->dev.parent);
 
-	if (!skip && get_device(&devfreq->dev)) {
-		device_unregister(&devfreq->dev);
-		put_device(&devfreq->dev);
-	}
-
 	mutex_destroy(&devfreq->lock);
 	kfree(devfreq);
 }
@@ -431,14 +445,38 @@ static void _remove_devfreq(struct devfreq *devfreq, bool skip)
  * @dev:	the devfreq device
  *
  * This calls _remove_devfreq() if _remove_devfreq() is not called.
- * Note that devfreq_dev_release() could be called by _remove_devfreq() as
- * well as by others unregistering the device.
  */
 static void devfreq_dev_release(struct device *dev)
 {
 	struct devfreq *devfreq = to_devfreq(dev);
 
-	_remove_devfreq(devfreq, true);
+	_remove_devfreq(devfreq);
+}
+
+/**
+ * find_governor_data - Find device specific private data for a governor.
+ * @profile: The profile to search.
+ * @governor_name: The governor to search for.
+ *
+ * Look up the device specific data for a governor.
+ */
+static void *find_governor_data(struct devfreq_dev_profile *profile,
+				const char *governor_name)
+{
+	void *data = NULL;
+	int i;
+
+	if (profile->governor_data == NULL)
+		return NULL;
+
+	for (i = 0; i < profile->num_governor_data; i++) {
+		if (strncmp(governor_name, profile->governor_data[i].name,
+			     DEVFREQ_NAME_LEN) == 0) {
+			data = profile->governor_data[i].data;
+			break;
+		}
+	}
+	return data;
 }
 
 /**
@@ -488,16 +526,18 @@ struct devfreq *devfreq_add_device(struct device *dev,
 	devfreq->profile = profile;
 	strncpy(devfreq->governor_name, governor_name, DEVFREQ_NAME_LEN);
 	devfreq->previous_freq = profile->initial_freq;
-	devfreq->data = data;
+	devfreq->data = data ? data : find_governor_data(devfreq->profile,
+							 governor_name);
 	devfreq->nb.notifier_call = devfreq_notifier_call;
 
 	devfreq->trans_table =	devm_kzalloc(dev, sizeof(unsigned int) *
 						devfreq->profile->max_state *
 						devfreq->profile->max_state,
 						GFP_KERNEL);
-	devfreq->time_in_state = devm_kzalloc(dev, sizeof(unsigned int) *
-						devfreq->profile->max_state,
-						GFP_KERNEL);
+	devfreq->time_in_state = devm_kzalloc(dev,
+					sizeof(*(devfreq->time_in_state)) *
+					devfreq->profile->max_state,
+					GFP_KERNEL);
 	devfreq->last_stat_updated = jiffies;
 	devfreq_set_freq_limits(devfreq);
 
@@ -512,6 +552,10 @@ struct devfreq *devfreq_add_device(struct device *dev,
 	mutex_unlock(&devfreq->lock);
 
 	mutex_lock(&devfreq_list_lock);
+	gpufreq_kobj = kobject_create_and_add("gpufreq", &devfreq->dev.kobj);
+	if (!gpufreq_kobj)
+		goto err_dev;
+
 	list_add(&devfreq->node, &devfreq_list);
 
 	governor = find_devfreq_governor(devfreq->governor_name);
@@ -548,7 +592,8 @@ int devfreq_remove_device(struct devfreq *devfreq)
 	if (!devfreq)
 		return -EINVAL;
 
-	_remove_devfreq(devfreq, false);
+	device_unregister(&devfreq->dev);
+	put_device(&devfreq->dev);
 
 	return 0;
 }
@@ -708,6 +753,26 @@ err_out:
 }
 EXPORT_SYMBOL(devfreq_remove_governor);
 
+int devfreq_policy_add_files(struct devfreq *devfreq,
+			     struct attribute_group attr_group)
+{
+	int ret;
+
+	ret = sysfs_create_group(gpufreq_kobj, &attr_group);
+	if (ret)
+		kobject_put(gpufreq_kobj);
+
+	return ret;
+}
+EXPORT_SYMBOL(devfreq_policy_add_files);
+
+void devfreq_policy_remove_files(struct devfreq *devfreq,
+				 struct attribute_group attr_group)
+{
+	sysfs_remove_group(gpufreq_kobj, &attr_group);
+}
+EXPORT_SYMBOL(devfreq_policy_remove_files);
+
 static ssize_t show_governor(struct device *dev,
 			     struct device_attribute *attr, char *buf)
 {
@@ -746,6 +811,7 @@ static ssize_t store_governor(struct device *dev, struct device_attribute *attr,
 			goto out;
 		}
 	}
+	df->data = find_governor_data(df->profile, str_governor);
 	df->governor = governor;
 	strncpy(df->governor_name, governor->name, DEVFREQ_NAME_LEN);
 	ret = df->governor->event_handler(df, DEVFREQ_GOV_START, NULL);
@@ -786,9 +852,15 @@ static ssize_t show_freq(struct device *dev,
 {
 	unsigned long freq;
 	struct devfreq *devfreq = to_devfreq(dev);
+	struct devfreq_dev_profile *profile = devfreq->profile;
 
-	if (devfreq->profile->get_cur_freq &&
-		!devfreq->profile->get_cur_freq(devfreq->dev.parent, &freq))
+	if (devfreq->state == KGSL_STATE_SLUMBER) {
+		freq = 27000000;
+		return sprintf(buf, "%lu\n", freq);
+	}
+
+	if (profile->get_cur_freq &&
+		!profile->get_cur_freq(devfreq->dev.parent, &freq))
 			return sprintf(buf, "%lu\n", freq);
 
 	return sprintf(buf, "%lu\n", devfreq->previous_freq);
@@ -821,6 +893,7 @@ static ssize_t store_polling_interval(struct device *dev,
 	if (ret != 1)
 		return -EINVAL;
 
+	df->profile->polling_ms = value;
 	df->governor->event_handler(df, DEVFREQ_GOV_INTERVAL, &value);
 	ret = count;
 
@@ -898,36 +971,21 @@ static ssize_t show_available_freqs(struct device *d,
 				    char *buf)
 {
 	struct devfreq *df = to_devfreq(d);
-	struct device *dev = df->dev.parent;
-	struct opp *opp;
-	ssize_t count = 0;
-	unsigned long freq = 0;
+	int index, num_chars = 0;
 
-	rcu_read_lock();
-	do {
-		opp = opp_find_freq_ceil(dev, &freq);
-		if (IS_ERR(opp))
-			break;
+	for (index = 0; index < df->profile->max_state; index++)
+		num_chars += snprintf(buf + num_chars, PAGE_SIZE, "%d ",
+		df->profile->freq_table[index]);
+	buf[num_chars++] = '\n';
 
-		count += scnprintf(&buf[count], (PAGE_SIZE - count - 2),
-				   "%lu ", freq);
-		freq++;
-	} while (1);
-	rcu_read_unlock();
-
-	/* Truncate the trailing space */
-	if (count)
-		count--;
-
-	count += sprintf(&buf[count], "\n");
-
-	return count;
+	return num_chars;
 }
 
 static ssize_t show_trans_table(struct device *dev, struct device_attribute *attr,
 				char *buf)
 {
 	struct devfreq *devfreq = to_devfreq(dev);
+	struct devfreq_dev_profile *profile = devfreq->profile;
 	ssize_t len;
 	int i, j, err;
 	unsigned int max_state = devfreq->profile->max_state;
@@ -940,19 +998,17 @@ static ssize_t show_trans_table(struct device *dev, struct device_attribute *att
 	len += sprintf(buf + len, "         :");
 	for (i = 0; i < max_state; i++)
 		len += sprintf(buf + len, "%8u",
-				devfreq->profile->freq_table[i]);
+				profile->freq_table[i]);
 
 	len += sprintf(buf + len, "   time(ms)\n");
 
 	for (i = 0; i < max_state; i++) {
-		if (devfreq->profile->freq_table[i]
-					== devfreq->previous_freq) {
+		if (profile->freq_table[i] == devfreq->previous_freq
+		    && devfreq->state != KGSL_STATE_SLUMBER)
 			len += sprintf(buf + len, "*");
-		} else {
+		else
 			len += sprintf(buf + len, " ");
-		}
-		len += sprintf(buf + len, "%8u:",
-				devfreq->profile->freq_table[i]);
+		len += sprintf(buf + len, "%8u:", profile->freq_table[i]);
 		for (j = 0; j < max_state; j++)
 			len += sprintf(buf + len, "%8u",
 				devfreq->trans_table[(i * max_state) + j]);
@@ -962,6 +1018,32 @@ static ssize_t show_trans_table(struct device *dev, struct device_attribute *att
 
 	len += sprintf(buf + len, "Total transition : %u\n",
 					devfreq->total_trans);
+	return len;
+}
+
+static ssize_t show_time_in_state(struct device *dev, struct device_attribute *attr,
+				char *buf)
+{
+	struct devfreq *devfreq = to_devfreq(dev);
+	ssize_t len;
+	int i, err;
+	unsigned int max_state = devfreq->profile->max_state;
+
+	err = devfreq_update_status(devfreq, devfreq->previous_freq);
+	if (err)
+		return 0;
+
+	len = 0;
+	
+	for (i = 0; i < max_state; i++) {
+		len += sprintf(buf + len, "%u ",
+				devfreq->profile->freq_table[i]);
+		len += sprintf(buf + len, "%u ",
+			jiffies_to_msecs(devfreq->time_in_state[i]));
+	}
+
+	len += sprintf(buf + len, "\n");
+	
 	return len;
 }
 
@@ -976,6 +1058,7 @@ static struct device_attribute devfreq_attrs[] = {
 	__ATTR(min_freq, S_IRUGO | S_IWUSR, show_min_freq, store_min_freq),
 	__ATTR(max_freq, S_IRUGO | S_IWUSR, show_max_freq, store_max_freq),
 	__ATTR(trans_stat, S_IRUGO, show_trans_table, NULL),
+	__ATTR(time_in_state, S_IRUGO, show_time_in_state, NULL),
 	{ },
 };
 
@@ -987,7 +1070,10 @@ static int __init devfreq_init(void)
 		return PTR_ERR(devfreq_class);
 	}
 
-	devfreq_wq = create_freezable_workqueue("devfreq_wq");
+	devfreq_wq =
+	    alloc_workqueue("devfreq_wq",
+			    WQ_HIGHPRI | WQ_UNBOUND | WQ_FREEZABLE |
+			    WQ_MEM_RECLAIM, 0);
 	if (IS_ERR(devfreq_wq)) {
 		class_destroy(devfreq_class);
 		pr_err("%s: couldn't create workqueue\n", __FILE__);
