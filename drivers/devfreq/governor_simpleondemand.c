@@ -1,15 +1,12 @@
 /*
- * linux/drivers/devfreq/governor_simpleondemand.c
- *
- * Copyright (C) 2011, Samsung Electronics
- *		      MyungJoo Ham <myungjoo.ham@samsung.com>
+ * Copyright (C) 2011 Samsung Electronics
+ *		 MyungJoo Ham <myungjoo.ham@samsung.com>
  * Copyright (C) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
 #include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/devfreq.h>
@@ -31,10 +28,10 @@ static int devfreq_simple_ondemand_func(struct devfreq *df,
 {
 	struct devfreq_dev_status stat;
 	struct devfreq_simple_ondemand_data *data = df->data;
-	int err;
 	unsigned long long a, b;
 	unsigned long max = (df->max_freq) ? df->max_freq : UINT_MAX;
 	unsigned long min = (df->min_freq) ? df->min_freq : 0;
+	int err;
 
 	stat.private_data = NULL;
 
@@ -153,15 +150,13 @@ static struct kobj_attribute downdifferential_attribute =
 	__ATTR(downdifferential, 0664, simple_ondemand_downdifferential_show,
 	       simple_ondemand_downdifferential_store);
 
-static struct attribute *attrs[] =
-{
+static struct attribute *attrs[] = {
 	&upthreshold_attribute.attr,
 	&downdifferential_attribute.attr,
 	NULL,
 };
 
-static struct attribute_group attr_group =
-{
+static struct attribute_group attr_group = {
 	.attrs = attrs,
 	.name = DEVFREQ_SIMPLE_ONDEMAND,
 };
@@ -196,8 +191,7 @@ static int devfreq_simple_ondemand_handler(struct devfreq *devfreq,
 	return ret;
 }
 
-static struct devfreq_governor devfreq_simple_ondemand =
-{
+static struct devfreq_governor devfreq_simple_ondemand = {
 	.name = DEVFREQ_SIMPLE_ONDEMAND,
 	.get_target_freq = devfreq_simple_ondemand_func,
 	.event_handler = devfreq_simple_ondemand_handler,

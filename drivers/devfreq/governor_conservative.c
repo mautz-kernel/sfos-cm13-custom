@@ -1,6 +1,4 @@
 /*
- * governor_conservative.c
- *
  * Copyright (C) 2013, Fluxi <linflux@arcor.de>
  * Copyright (C) 2016, The Linux Foundation. All rights reserved.
  *
@@ -12,12 +10,11 @@
 #include <linux/module.h>
 #include <linux/devfreq.h>
 #include <linux/msm_adreno_devfreq.h>
-
 #include "governor.h"
 
 #define DEVFREQ_CONSERVATIVE	"conservative"
 
-#define DEF_UPTHRESH		50
+#define DEF_UPTHRESH		60
 #define DEF_DOWNTHRESH		20
 
 /*
@@ -194,16 +191,14 @@ static struct kobj_attribute conservativeness_attribute =
 	__ATTR(conservativeness, 0664, conservative_conservativeness_show,
 	       conservative_conservativeness_store);
 
-static struct attribute *attrs[] =
-{
+static struct attribute *attrs[] = {
 	&upthreshold_attribute.attr,
 	&downthreshold_attribute.attr,
 	&conservativeness_attribute.attr,
 	NULL,
 };
 
-static struct attribute_group attr_group =
-{
+static struct attribute_group attr_group = {
 	.attrs = attrs,
 	.name = DEVFREQ_CONSERVATIVE,
 };
@@ -293,8 +288,7 @@ static int devfreq_conservative_handler(struct devfreq *devfreq,
 }
 EXPORT_SYMBOL(devfreq_conservative_handler);
 
-static struct devfreq_governor devfreq_conservative =
-{
+static struct devfreq_governor devfreq_conservative = {
 	.name = DEVFREQ_CONSERVATIVE,
 	.get_target_freq = devfreq_conservative_func,
 	.event_handler = devfreq_conservative_handler,
