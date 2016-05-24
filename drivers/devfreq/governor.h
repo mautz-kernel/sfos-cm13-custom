@@ -1,9 +1,8 @@
 /*
  * governor.h - internal header for devfreq governors.
  *
- * Copyright (C) 2011, Samsung Electronics
+ * Copyright (C) 2011 Samsung Electronics
  *	MyungJoo Ham <myungjoo.ham@samsung.com>
- * Copyright (C) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

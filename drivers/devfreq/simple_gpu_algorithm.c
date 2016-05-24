@@ -1,7 +1,5 @@
 /*
- * Author: Paul Reioux aka Faux123 <reioux@gmail.com>
- *
- * Copyright (C) 2011~2014, Paul Reioux
+ * Copyright (C) 2011-2014, Paul Reioux
  * Copyright (C) 2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -18,17 +16,14 @@
 #include <linux/devfreq.h>
 #include <linux/msm_adreno_devfreq.h>
 
-static int default_laziness = 2;
+static int default_laziness = 3;
 module_param_named(simple_laziness, default_laziness, int, 0664);
 
-static int ramp_up_threshold = 6000;
+static int ramp_up_threshold = 4000;
 module_param_named(simple_ramp_threshold, ramp_up_threshold, int, 0664);
 
 int simple_gpu_active = 0;
 module_param_named(simple_gpu_activate, simple_gpu_active, int, 0664);
-
-int simple_gpu_debug = 0;
-module_param_named(simple_gpu_debug, simple_gpu_debug, int, 0664);
 
 static int laziness;
 
@@ -36,24 +31,17 @@ int simple_gpu_algorithm(int level, struct devfreq_msm_adreno_tz_data *priv)
 {
 	int val = 0;
 
-	if (simple_gpu_debug == 1)
-		pr_info("simple_gpu_debug: level is %d\n", level);
-
-	if (simple_gpu_debug == 2)
-		pr_info("simple_gpu_debug: busy_time is %u\n", (unsigned int)priv->bin.busy_time);
-
-	if (simple_gpu_debug == 3)
-		pr_info("simple_gpu_debug: bus.num is %d\n", priv->bus.num + 2);
-
 	/* it's currently busy */
 	if ((unsigned int)priv->bin.busy_time > ramp_up_threshold) {
 		if (level == 0)
 			val = 0; /* already maxed, so do nothing */
-		else if ((level > 0) && (level <= (priv->bus.num + 2)))
+		else if ((level > 0) &&
+			(level <= (priv->bus.num - 1)))
 			val = -1; /* bump up to next pwrlevel */
 	/* idle case */
 	} else {
-		if ((level >= 0) && (level < (priv->bus.num + 2)))
+		if ((level >= 0) &&
+			(level < (priv->bus.num - 1)))
 			if (laziness > 0) {
 				/* hold off for a while */
 				laziness--;
@@ -62,11 +50,9 @@ int simple_gpu_algorithm(int level, struct devfreq_msm_adreno_tz_data *priv)
 				val = 1; /* above min, lower it */
 				/* reset laziness count */
 				laziness = default_laziness;
-		} else if (level == (priv->bus.num + 2))
+		} else if (level == (priv->bus.num - 1))
 			val = 0; /* already @ min, so do nothing */
 	}
-	if (simple_gpu_debug == 4)
-		pr_info("simple_gpu_debug: returning val is %d\n", val);
 
 	return val;
 }

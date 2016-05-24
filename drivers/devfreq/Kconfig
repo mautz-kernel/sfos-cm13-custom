@@ -79,21 +79,24 @@ config DEVFREQ_GOV_CONSERVATIVE
 	help
 	  Chooses frequency based on the recent load on the device. Works
 	  similar as conservative governor of cpufreq does and implements
-	  the useful optimizations from Adreno TZ.
+	  the useful optimizations from Adreno TZ. It also doesn't use TZ
+	  calls, so it's totally open-sourced and highly recommended on
+	  modified devfreq behavior.
 
 config DEVFREQ_SIMPLE_GPU_ALGORITHM
 	bool "Simple GPU algorithm"
 	depends on DEVFREQ_GOV_MSM_ADRENO_TZ
 	help
-	  Simple user configurable GPU controlling algorithm.
+	  Simple GPU controller, used to replace closed-source Qualcomm
+	  TrustZone GPU controller.
 
 config DEVFREQ_ADRENO_IDLER
 	tristate "MSM Adreno idler"
 	depends on DEVFREQ_GOV_MSM_ADRENO_TZ
 	help
-	  Uses a different calculation method on top of Adreno TZ
-	  just for calculating frequency for idle to reduce the
-	  wasted power coming from stock Adreno TZ while
-	  maintaining high-performance.
+	  An efficient idling algorithm, that replaces weird closed-source
+	  TrustZone GPU one. If enabled, it can reduce power consumption
+	  without any performance drops. It's highly recommended to be enabled,
+	  as it is fully stable.
 
 endif # PM_DEVFREQ
