@@ -20,11 +20,10 @@
  *
  * Since msm-adreno-tz tends to *not* use the lowest frequency even on idle,
  * Adreno idler replaces msm-adreno-tz's algorithm when it comes to
- * calculating idle frequency(mostly by ondemand's method).
+ * calculating idle frequency (mostly by ondemand's method).
  * The higher frequencies are not touched with this algorithm, so high-demanding
  * games will (most likely) not suffer from worsened performance.
  */
-
 #include <linux/module.h>
 #include <linux/devfreq.h>
 #include <linux/msm_adreno_devfreq.h>
@@ -49,10 +48,10 @@ module_param_named(adreno_idler_idleworkload, idleworkload, ulong, 0664);
  * Adreno idler will more actively try to ramp down the frequency
  * if this is set to a lower value.
  */
-static unsigned int idlewait = 25;
+static unsigned int idlewait = 20;
 module_param_named(adreno_idler_idlewait, idlewait, uint, 0664);
 
-static unsigned int downdifferential = 10;
+static unsigned int downdifferential = 20;
 module_param_named(adreno_idler_downdifferential, downdifferential, uint, 0664);
 
 /* Master switch to activate the whole routine */
@@ -102,6 +101,5 @@ static void __exit adreno_idler_exit(void)
 module_exit(adreno_idler_exit);
 
 MODULE_AUTHOR("Park Ju Hyung <qkrwngud825@gmail.com>");
-MODULE_DESCRIPTION("'adreno_idler - A powersaver for Adreno TZ"
-	"Control idle algorithm for Adreno GPU series");
-MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("'adreno_idler - An efficient idling algorithm for MSM Adreno TZ");
+MODULE_LICENSE("GPLv2");
