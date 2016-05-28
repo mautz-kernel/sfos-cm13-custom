@@ -27,11 +27,11 @@ struct clock_data {
 	u32 mult;
 	u32 shift;
 	bool suspended;
+	bool needs_suspend;
 };
 
 static struct hrtimer sched_clock_timer;
 static int irqtime = -1;
-static int initialized;
 
 core_param(irqtime, irqtime, int, 0400);
 
@@ -170,11 +170,6 @@ void __init sched_clock_register(u64 (*read)(void), int bits,
 	pr_debug("Registered %pF as sched_clock source\n", read);
 }
 
-int sched_clock_initialized(void)
-{
-	return initialized;
-}
-
 void __init sched_clock_postinit(void)
 {
 	/*
@@ -193,8 +188,6 @@ void __init sched_clock_postinit(void)
 	hrtimer_init(&sched_clock_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	sched_clock_timer.function = sched_clock_poll;
 	hrtimer_start(&sched_clock_timer, cd.wrap_kt, HRTIMER_MODE_REL);
-
-	initialized = 1;
 }
 
 static int sched_clock_suspend(void)
