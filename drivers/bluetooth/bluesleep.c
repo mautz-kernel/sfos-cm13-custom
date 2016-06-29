@@ -766,7 +766,7 @@ static struct proc_dir_entry *bluesleep_proc_create(const char *name,
 
 static void bluesleep_proc_set_uid_gid(struct proc_dir_entry *ent)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
 	proc_set_user(ent, KUIDT_INIT(AID_BLUETOOTH),
 		      KGIDT_INIT(AID_NET_BT_STACK));
 #else
