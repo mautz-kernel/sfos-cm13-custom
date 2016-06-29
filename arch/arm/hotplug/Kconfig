@@ -1,10 +1,10 @@
+comment "Hotplug drivers"
+
 config INTELLI_PLUG
         bool "Enable intelli-plug cpu hotplug driver"
         default n
         help
           Generic Intelli-plug cpu hotplug driver for ARM SOCs
-
-comment "Hotplug drivers"
 
 config MSM_HOTPLUG
 	bool "Hotplug driver for MSM chipsets"
@@ -12,3 +12,9 @@ config MSM_HOTPLUG
 	help
 	  This is a generic hotplug implementation for
 	  Qualcomm MSM boards. Use for SMP chipsets only.
+
+config BRICKED_HOTPLUG
+	bool "Hotplug driver for MSM8974 board"
+	depends on MSM_RUN_QUEUE_STATS
+	help
+	  This enables kernel based multi core control.
