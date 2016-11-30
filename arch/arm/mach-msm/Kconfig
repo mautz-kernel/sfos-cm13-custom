@@ -3069,6 +3069,21 @@ config WALL_CLK_SYSFS
 	 Support the wallclk directory in sysfs filesystem to enable the
 	 wall clock simulation and read the current SFN.
 	 
+config BLU_PLUG
+	bool "Dynamic hotplug driver"
+	depends on HOTPLUG_CPU
+	default n
+	help
+	  The Dynamic hotplug driver automatically online/offline CPUs proportional to system load.
+
+config MSM_MPDEC
+ 	bool "Enable kernel based mpdecision"
+ 	depends on MSM_SMP
+ 	default n
+ 	help
+ 	  This enables kernel based multi core control.
+ 	  (up/down hotplug based on load)
+	  
 config CPU_OVERCLOCK
  	bool "Enable CPU Overclocking option"
  	default n
