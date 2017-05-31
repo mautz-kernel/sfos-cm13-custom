@@ -35,9 +35,13 @@
 #include <linux/pm_runtime.h>
 #include <linux/kernel.h>
 #include <linux/gpio.h>
+#include <linux/moduleparam.h>
 #include "wcd9320.h"
 #include "wcd9xxx-resmgr.h"
 #include "wcd9xxx-common.h"
+
+static bool enable_fs = false;
+module_param(enable_fs, bool, 0644);
 
 #define TAIKO_MAD_SLIMBUS_TX_PORT 12
 #define TAIKO_MAD_AUDIO_FIRMWARE_PATH "wcd9320/wcd9320_mad_audio.bin"
@@ -4191,14 +4195,17 @@ int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 	}
 
 #ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
-	if (!snd_hax_reg_access(reg)) {
-		if (!((val = snd_hax_cache_read(reg)) != -1)) {
-			val = wcd9xxx_reg_read_safe(codec->control_data, reg);
+	if (enable_fs) {
+		if (!snd_hax_reg_access(reg)) {
+			if (!((val = snd_hax_cache_read(reg)) != -1)) {
+				val = wcd9xxx_reg_read_safe(codec->control_data, reg);
+			}
+		} else {
+			snd_hax_cache_write(reg, value);
+			val = value;
 		}
-	} else {
-		snd_hax_cache_write(reg, value);
-		val = value;
-	}
+	} else val = value;
+	
 	return wcd9xxx_reg_write(codec->control_data, reg, val);
 #else
 	return wcd9xxx_reg_write(codec->control_data, reg, value);
