@@ -12,3 +12,11 @@ config MSM_HOTPLUG
 	help
 	  This is a generic hotplug implementation for
 	  Qualcomm MSM boards. Use for SMP chipsets only.
+	  
+config AUTOSMP
+	bool "Multi-core automatic hotplug support"
+	depends on SMP && HOTPLUG_CPU
+	help
+	  Automatically hotplugs the multiple cpu cores on and off
+	  based on cpu load and suspend state
+
